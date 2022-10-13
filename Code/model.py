@@ -1,11 +1,14 @@
 import torch, torchvision
 from torch.nn import Module,Sequential,Linear,Conv2d,BatchNorm2d,ReLU,MaxPool2d
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader,random_split
 import pathlib
 import torch.nn as nn
 from torch.optim import Adam
-from torchvision import transforms
-import glob
+from torchvision import transforms,datasets
+from glob import glob
+import pickle
+
+#glob module can be used for file name matching
 
 class ConvNet(nn.Module):
     def __init__(self,num_classes=3):
@@ -49,11 +52,13 @@ class ConvNet(nn.Module):
 
 
 class HWRModel:
-    def __init__(self,data_path,batch_size,local_data_count):
+    def __init__(self,user_id,batch_size,local_data_percentage,data_path = '/Users/tarunvisvar/Downloads/Dataset/Handwriting/Handwriting-subset'):
+        self.user_id = user_id
+        self.dest_file = 'best_checkpoint_{}.model'.format(user_id)
         self.batch_size = batch_size
         self.train_path = data_path + '/Train'
         self.test_path = data_path + '/Test'
-        self.local_data_count = local_data_count # Amount of data that a user can choose 
+        self.local_data_percentage = local_data_percentage
     
     def preprocess(self,resize=150):
         transformer = transforms.Compose(
@@ -73,13 +78,23 @@ class HWRModel:
 
         return (model,optimizer,loss_func)
 
+    def get_dataset(self,path):
+        img_dataset = datasets.ImageFolder(path,transform = self.preprocess())
+        total_data_count = len(glob(path+"/**/*.png"))
+        shared_data_count = int((self.local_data_percentage/100)*total_data_count)
+        local_dataset,rem_dataset = random_split(img_dataset,(shared_data_count,total_data_count-shared_data_count))
+
+        print("{}/{} images taken".format(shared_data_count,total_data_count))
+        return local_dataset
+
+
     def load_dataset(self):
         train_loader = DataLoader(
-    torchvision.datasets.ImageFolder(self.train_path,transform = self.preprocess()),
+    self.get_dataset(self.train_path),
     batch_size=batch_size, shuffle=True)
 
         test_loader = DataLoader(
-    torchvision.datasets.ImageFolder(self.test_path,transform = self.preprocess()),
+    self.get_dataset(self.test_path),
     batch_size=batch_size, shuffle=True) 
 
         return(train_loader,test_loader)
@@ -88,8 +103,8 @@ class HWRModel:
         model,optimizer,loss_func = self.get_model()
         best_accuracy = 0.0
         train_loader,test_loader = self.load_dataset()
-        train_count=len(glob.glob(self.train_path+'/**/*.png'))
-        test_count=len(glob.glob(self.test_path+'/**/*.png'))
+        train_count=len(glob(self.train_path+'/**/*.png'))
+        test_count=len(glob(self.test_path+'/**/*.png'))
 
         
         for epoch in range(num_epochs):
@@ -120,25 +135,39 @@ class HWRModel:
                 test_accuracy += int(torch.sum(predictions==labels.data))
             test_accuracy /= test_count
             print("Test accuracy =  ",str(test_accuracy))
+
             if test_accuracy>best_accuracy:
-                torch.save(model,'best_checkpoint.model')
+                
+                torch.save(model,self.dest_file)
                 best_accuracy=test_accuracy
+
+        return best_accuracy
             
     def get_parameters(self):
-        loaded_model = torch.load('best_checkpoint.model')
+        loaded_model = torch.load(self.dest_file)
         params = dict()
         for name,parameters in loaded_model.named_parameters():
             params[name] = parameters
+            
         return params
 
 if __name__ == '__main__':
     data_path = '/Users/tarunvisvar/Downloads/Dataset/Handwriting/Handwriting-subset'
-    batch_size = 100
-    local_data_count = 1000
-    mymodel = HWRModel(data_path,batch_size,local_data_count)
+    batch_size = 64
+    local_data_percentage = 40
+    parameter_list = [] # For testing aggregator function developed by Shasaank
+    for i in range(5):
+        mymodel = HWRModel(i,batch_size,local_data_percentage,data_path=data_path)
+        mymodel.train(num_epochs = 10)
+        parameters = mymodel.get_parameters()
+        parameter_list.append(parameters)
+    with open('parameter_list.bin','wb') as f:
+        pickle.dump(parameter_list,f)
+    
 
-    mymodel.train(num_epochs = 10)
 
-    print(mymodel.get_parameters())
+
+   
+
         
 

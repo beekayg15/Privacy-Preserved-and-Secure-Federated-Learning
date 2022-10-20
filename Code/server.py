@@ -2,7 +2,6 @@ import torch
 import os
 import numpy as np
 import torch.nn as nn
-import dgl
 from random import sample
 from multiprocessing import Pool, Manager
 # from torch.multiprocessing import Pool, Manager
@@ -10,22 +9,21 @@ from model import HWRModel
 import pdb
 torch.multiprocessing.set_sharing_strategy('file_system')
 
-class server():
-    def __init__(self, user_list, user_batch, users, items, embed_size, lr):
+class Server:
+    def __init__(self, user_list, user_batch, lr):
         self.user_list_with_coldstart = user_list
         self.user_list = self.generate_user_list(self.user_list_with_coldstart)
         self.batch_size = user_batch
-        self.user_embedding = torch.randn(len(users), embed_size).share_memory_()
-        self.item_embedding = torch.randn(len(items), embed_size).share_memory_()
-        self.model = model(embed_size, 1)
+        #Check whether model works without calling user_instance
+        self.model = HWRModel()
         self.lr = lr
         self.distribute(self.user_list_with_coldstart)
 
     def generate_user_list(self, user_list_with_coldstart):
+        #Not necessary for us 
         ls = []
         for user in user_list_with_coldstart:
-            if len(user.items) > 0:
-                ls.append(user)
+            ls.append(user)
         return ls
 
     def aggregator(self, parameter_list):
@@ -37,7 +35,7 @@ class server():
         else:
             return result
 
-        layer_names = lou[0].keys()  # colleting the b=name of each layer in the model
+        layer_names = lou[0].keys()  # collecting the of each layer in the model
 
         # calculating the average of parameters all the users
         for layer in layer_names:
@@ -45,17 +43,19 @@ class server():
                 result[layer] = result[layer] + user[layer]
             result[layer] = result[layer] / len(parameter_list)
 
-        return result
+        self.model.initialise_parameters(result)
+        #Testing
+        print('Weights aggregated and parameters initialized')
+        print('bias weights at server',result['conv1.bias'])
 
-    def distribute(self, users):
+    def distribute(self,users):
+        print('Distributig model to users')
         for user in users:
             user.update_local_model(self.model)
 
-    def distribute_one(self, user):
-        user.update_local_GNN(self.model)
-
     def predict(self, valid_data):
         # print('predict')
+        #Yet to complete
         users = valid_data[:, 0]
         items = valid_data[:, 1]
         res = []
@@ -66,16 +66,20 @@ class server():
             res.append(float(res_temp))
         return np.array(res)
 
-    def train_one(self, user, user_embedding, item_embedding):
+    def train_one(self, user):
         print(user)
-        self.parameter_list.append(user.train(user_embedding, item_embedding))
+        self.parameter_list.append(user.train())
 
     def train(self):
 
+        #Try to understand main and complete it
+        #After that try to initialize a new model with the weights, or try obtaining only gradients
+
         parameter_list = []
 
-        #Returns a random 'self.batch-size' users from user list
-        users = sample(self.user_list, self.batch_size)
+        #Returns a random 'self.batch-size' users from user list 
+        #Implement sample function, resolve conflict between bath_size and user_batch
+        users = self.user_list
         # print('distribute')
 
         #distributes the global model to all the users
@@ -89,20 +93,20 @@ class server():
 
         #Runs train for all the users(basically trains all the users)
         #After training each user, adds the resultant parameters to the parameter list
+        avg_best_acc = 0.0
         for user in users:
-            parameter_list.append(user.train(self.user_embedding, self.item_embedding))
+            parameter_list.append(user.train())
+            print(f'user : {user.user_id}, accuracy = {user.best_accuracy}')
+            avg_best_acc += user.best_accuracy
+        avg_best_acc /= len(users)
 
-        # print('aggregate')
-        #Aggregates all the parameters
-        gradient_model, gradient_item, gradient_user = self.aggregator(parameter_list)
+        aggregated_weights = self.aggregator(parameter_list)
 
-        #Retrieving the exisitng(old) model parameters
-        ls_model_param = list(self.model.parameters())
+        return avg_best_acc
 
-        # print('renew')
 
-        #Updating the existing(previous) weights with the new agegated weights
-        for i in range(len(ls_model_param)):
-            ls_model_param[i].data = ls_model_param[i].data - self.lr * gradient_model[i]
-        self.item_embedding = self.item_embedding -  self.lr * gradient_item
-        self.user_embedding = self.user_embedding -  self.lr * gradient_user
+
+
+        
+
+ 

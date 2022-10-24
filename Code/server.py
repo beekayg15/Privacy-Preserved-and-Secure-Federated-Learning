@@ -17,7 +17,7 @@ class Server:
         #Check whether model works without calling user_instance
         self.model = HWRModel()
         self.lr = lr
-        self.distribute(self.user_list_with_coldstart)
+        #self.distribute(self.user_list_with_coldstart)
 
     def generate_user_list(self, user_list_with_coldstart):
         #Not necessary for us 
@@ -45,11 +45,10 @@ class Server:
 
         self.model.initialise_parameters(result)
         #Testing
-        print('Weights aggregated and parameters initialized')
-        print('bias weights at server',result['conv1.bias'])
+        print('Bias weights at server',result['conv1.bias'])
 
     def distribute(self,users):
-        print('Distributig model to users')
+        print('Distributing model to users ... \n')
         for user in users:
             user.update_local_model(self.model)
 
@@ -96,7 +95,7 @@ class Server:
         avg_best_acc = 0.0
         for user in users:
             parameter_list.append(user.train())
-            print(f'user : {user.user_id}, accuracy = {user.best_accuracy}')
+            #print(f'\nUser : {user.user_id}, Accuracy = {user.best_accuracy}')
             avg_best_acc += user.best_accuracy
         avg_best_acc /= len(users)
 

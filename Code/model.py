@@ -1,7 +1,5 @@
 import torch, torchvision
-from torch.nn import Module,Sequential,Linear,Conv2d,BatchNorm2d,ReLU,MaxPool2d
 from torch.utils.data import DataLoader,random_split
-import pathlib
 import torch.nn as nn
 from torch.optim import Adam
 from torchvision import transforms,datasets
@@ -51,18 +49,21 @@ class ConvNet(nn.Module):
         return output
 
     def initialise_parameters(self,result_parameters):
-        self.conv1.weight = torch.nn.Parameter(result_parameters['conv1.weight'])
-        self.conv1.bias=torch.nn.Parameter(result_parameters["conv1.bias"])
-        self.bn1.weight=torch.nn.Parameter(result_parameters["bn1.weight"])
-        self.bn1.bias=torch.nn.Parameter(result_parameters["bn1.bias"])
-        self.conv2.weight=torch.nn.Parameter(result_parameters["conv2.weight"])
-        self.conv2.bias=torch.nn.Parameter(result_parameters["conv2.bias"])
-        self.conv3.weight=torch.nn.Parameter(result_parameters["conv3.weight"])
-        self.conv3.bias=torch.nn.Parameter(result_parameters["conv3.bias"])
-        self.bn3.weight=torch.nn.Parameter(result_parameters["bn3.weight"])
-        self.bn3.bias=torch.nn.Parameter(result_parameters["bn3.bias"])
-        self.fc.weight=torch.nn.Parameter(result_parameters["fc.weight"])
-        self.fc.bias=torch.nn.Parameter(result_parameters["fc.bias"])
+
+        print('Initialize parameters called ...')
+        with torch.no_grad():
+            self.conv1.weight += torch.nn.Parameter(result_parameters['conv1.weight']-self.conv1.weight)
+            self.conv1.bias += torch.nn.Parameter(result_parameters["conv1.bias"]-self.conv1.bias)
+            self.bn1.weight += torch.nn.Parameter(result_parameters["bn1.weight"]-self.bn1.weight)
+            self.bn1.bias += torch.nn.Parameter(result_parameters["bn1.bias"]-self.bn1.bias)
+            self.conv2.weight += torch.nn.Parameter(result_parameters["conv2.weight"]-self.conv2.weight)
+            self.conv2.bias += torch.nn.Parameter(result_parameters["conv2.bias"]-self.conv2.bias)
+            self.conv3.weight += torch.nn.Parameter(result_parameters["conv3.weight"]-self.conv3.weight)
+            self.conv3.bias += torch.nn.Parameter(result_parameters["conv3.bias"]-self.conv3.bias)
+            self.bn3.weight += torch.nn.Parameter(result_parameters["bn3.weight"]-self.bn3.weight)
+            self.bn3.bias += torch.nn.Parameter(result_parameters["bn3.bias"]-self.bn3.bias)
+            self.fc.weight += torch.nn.Parameter(result_parameters["fc.weight"]-self.fc.weight)
+            self.fc.bias += torch.nn.Parameter(result_parameters["fc.bias"]-self.fc.bias)
 
 
 class HWRModel:
@@ -76,6 +77,7 @@ class HWRModel:
         self.dest_file = 'best_checkpoint_server.model'
         self.batch_size = 20
         self.local_data_percentage = 100
+        self.device = torch.device('mps')
 
     def user_instance(self,user_id,batch_size,local_data_percentage):
         self.user_id = user_id
@@ -122,10 +124,12 @@ class HWRModel:
         return(train_loader,test_loader)
         
     def train(self,num_epochs=10):
+
         best_accuracy = 0.0
         train_loader,test_loader = self.load_dataset()
         train_count=len(glob(self.train_path+'/**/*.png'))
         test_count=len(glob(self.test_path+'/**/*.png'))
+
         
         for epoch in range(num_epochs):
             self.model.train()
@@ -134,6 +138,7 @@ class HWRModel:
             train_accuracy = 0.0
             for images,labels in train_loader:
                 self.optimizer.zero_grad()
+                images.to(self.device)
                 outputs = self.model(images) 
 
                 loss = self.loss_func(outputs,labels)

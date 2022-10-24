@@ -1,14 +1,12 @@
-import pickle
-import torch
+
 import numpy as np
 from user import User
 from server import Server
 from sklearn import metrics
-import math
 import argparse
 import warnings
-import sys
 import faulthandler
+import torch
 from random import randrange
 faulthandler.enable()
 warnings.filterwarnings('ignore')
@@ -29,27 +27,9 @@ user_batch = args.user_batch
 lr = args.lr
 num_users = args.num_users
 
-def processing_valid_data(valid_data):
-    res = []
-    for key in valid_data.keys():
-        if len(valid_data[key]) > 0:
-            for ratings in valid_data[key]:
-                item, rate, _ = ratings
-                res.append((int(key), int(item), rate))
-    return np.array(res)
-
-def loss(server, valid_data):
-    label = valid_data[:, -1]
-    predicted = server.predict(valid_data)
-    mae = sum(abs(label - predicted)) / len(label)
-    rmse = math.sqrt(sum((label - predicted) ** 2) / len(label))
-    return mae, rmse
-
-# read data
-
 # build user_list
 user_list = []
-user_id_list = [i for i in range(num_users)]
+user_id_list = [i+1 for i in range(num_users)]
 for u in user_id_list:
     user_list.append(User(u,user_batch,randrange(40,60)))
 
@@ -61,12 +41,14 @@ count = 0
 
 # train and evaluate
 acc_best = float('-inf')
-while 1:
+#print(torch.has_mps)
+
+while True:
     acc = 0.0
     for i in range(args.valid_step):
         print(i)
         acc = server.train()
-        print(f"Accuracy at iteration {i} = {acc}")
+        print(f"\nAccuracy at iteration {i} = {acc}")
     if acc > acc_best:
         acc_best = acc
         count = 0
@@ -75,4 +57,5 @@ while 1:
     if count > 5:
         print('not improved for 5 epochs, stop trianing')
         break
+
 

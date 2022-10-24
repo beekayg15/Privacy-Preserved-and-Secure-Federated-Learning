@@ -1,10 +1,5 @@
-import torch
+
 import copy
-from random import sample
-import torch.nn as nn
-import numpy as np
-import pdb
-from model import HWRModel
 
 class User:
     def __init__(self,user_id,batch_size, local_data_percentage):
@@ -16,10 +11,8 @@ class User:
     def update_local_model(self, global_model):
         self.model = copy.deepcopy(global_model)
         self.model.user_instance(self.user_id,self.batch_size,self.local_data_percentage)
-        print(f'{self.user_id} received model from server .. ')
-        #Check whetehr the parameters are correctly transferred
-        #Check whether the model has the same parameters before the train function too.
-        print('bias weights at user',self.model.model.conv1.bias)
+        print(f'\nUser {self.user_id} received model from server .. ')
+        print(f'Bias weights at User {self.user_id}',self.model.model.conv1.bias)
 
 
     def predict(self, item_id, embedding_user, embedding_item):
@@ -28,10 +21,11 @@ class User:
 
     def train(self):
         #train function utilizes all other functions and returns best acuracy having saved best checkpoint model
+        print(f"\nUser {self.user_id} starting training ... \n")
         self.best_accuracy = self.model.train(num_epochs = 5)
-        print("Best accuracy = ",self.best_accuracy)
+        print(f"\nUser {self.user_id} Best accuracy = ",self.best_accuracy)
         parameters = self.model.get_parameters()
-        print('bias weights af User after training',parameters['conv1.bias'])
+        print(f'\nBias weights at User {self.user_id} after training',parameters['conv1.bias'])
         return parameters
 
 

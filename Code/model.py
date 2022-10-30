@@ -5,6 +5,7 @@ from torch.optim import Adam
 from torchvision import transforms,datasets
 from glob import glob
 import pickle
+import platform
 
 #glob module can be used for file name matching
 
@@ -68,7 +69,7 @@ class ConvNet(nn.Module):
 
 class HWRModel:
     
-    def __init__(self,data_path = '/Users/tarunvisvar/Downloads/Dataset/Handwriting/Handwriting-subset'):
+    def __init__(self,data_path = '/Users/tarunvisvar/Downloads/Dataset/handwriting-2'):
         self.train_path = data_path+'/Train'
         self.test_path = data_path +'/Test'
         self.model = ConvNet(num_classes = 3)
@@ -124,7 +125,7 @@ class HWRModel:
         return(train_loader,test_loader)
         
     def train(self,num_epochs=10):
-
+        #self.model.to(self.device)
         best_accuracy = 0.0
         train_loader,test_loader = self.load_dataset()
         train_count=len(glob(self.train_path+'/**/*.png'))
@@ -178,6 +179,7 @@ class HWRModel:
 
 
 if __name__ == '__main__':
+
     data_path = '/Users/tarunvisvar/Downloads/Dataset/Handwriting/Handwriting-subset'
     batch_size = 64
     local_data_percentage = 40

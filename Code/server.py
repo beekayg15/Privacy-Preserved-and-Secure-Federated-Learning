@@ -64,6 +64,20 @@ class Server:
             res_temp = self.user_list_with_coldstart[users[i]].predict(items[i], self.user_embedding, self.item_embedding)
             res.append(float(res_temp))
         return np.array(res)
+    
+    def validate(self):
+        test_loader = self.model.load_dataset()[1]
+        test_count = len(iter(test_loader))*self.model.batch_size
+        #print(test_count)
+        self.model.model.eval()
+        test_accuracy = 0.0
+        for images,labels in test_loader:
+            outputs = self.model.model(images)
+            _,predictions = torch.max(outputs.data,1)
+            test_accuracy += int(torch.sum(predictions==labels.data))
+        test_accuracy /= test_count
+        print(f"Server accuarcy = {test_accuracy}")
+
 
     def train_one(self, user):
         print(user)
@@ -102,6 +116,8 @@ class Server:
         aggregated_weights = self.aggregator(parameter_list)
 
         return avg_best_acc
+
+
 
 
 

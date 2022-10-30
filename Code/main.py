@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description="args for FedGNN")
 parser.add_argument('--lr', type=float, default = 1)
 parser.add_argument('--data', default='filmtrust')
 parser.add_argument('--user_batch', type=int, default=5)
-parser.add_argument('--num_users',type=int,default=5)
+parser.add_argument('--num_users',type=int,default=2)
 parser.add_argument('--clip', type=float, default = 0.1)
 parser.add_argument('--laplace_lambda', type=float, default = 0.1)
 parser.add_argument('--negative_sample', type = int, default = 1000)
@@ -49,13 +49,14 @@ while True:
         print(i)
         acc = server.train()
         print(f"\nAccuracy at iteration {i} = {acc}")
+        server.validate()
     if acc > acc_best:
         acc_best = acc
         count = 0
     else:
         count += 1
     if count > 5:
-        print('not improved for 5 epochs, stop trianing')
+        print('Not improved for 5 epochs, stop training')
         break
 
 

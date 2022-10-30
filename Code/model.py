@@ -52,6 +52,8 @@ class ConvNet(nn.Module):
     def initialise_parameters(self,result_parameters):
 
         print('Initialize parameters called ...')
+        for params in self.parameters():
+            params.data = params.to(torch.device('mps'))
         with torch.no_grad():
             self.conv1.weight += torch.nn.Parameter(result_parameters['conv1.weight']-self.conv1.weight)
             self.conv1.bias += torch.nn.Parameter(result_parameters["conv1.bias"]-self.conv1.bias)
@@ -125,7 +127,7 @@ class HWRModel:
         return(train_loader,test_loader)
         
     def train(self,num_epochs=10):
-        #self.model.to(self.device)
+        self.model.to(self.device)
         best_accuracy = 0.0
         train_loader,test_loader = self.load_dataset()
         train_count=len(glob(self.train_path+'/**/*.png'))
@@ -139,7 +141,8 @@ class HWRModel:
             train_accuracy = 0.0
             for images,labels in train_loader:
                 self.optimizer.zero_grad()
-                images.to(self.device)
+                images = images.to(self.device)
+                labels = labels.to(self.device)
                 outputs = self.model(images) 
 
                 loss = self.loss_func(outputs,labels)
@@ -156,6 +159,8 @@ class HWRModel:
             self.model.eval()
             test_accuracy = 0.0
             for images,labels in test_loader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
                 outputs = self.model(images)
                 _,predictions = torch.max(outputs.data,1)
                 test_accuracy += int(torch.sum(predictions==labels.data))

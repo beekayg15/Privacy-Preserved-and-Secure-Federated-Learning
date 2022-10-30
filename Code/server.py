@@ -13,6 +13,7 @@ class Server:
         self.user_list = user_list
         self.model = HWRModel(data_path)
         self.lr = lr
+        self.device = torch.device('mps')
 
     def aggregator(self, parameter_list):
         lou = parameter_list.copy()  # los -List of users
@@ -30,12 +31,10 @@ class Server:
             for user in lou:
                 result[layer] = result[layer] + user[layer]
             result[layer] = result[layer] / len(parameter_list)
-
-        print('Bias weights at server',result['conv1.bias'])
+        #For testing
+        print("Bias weights at server before initialsing",result['conv1.bias'])
         return result
-        
-
-
+     
     def distribute(self,users):
         print('Distributing model to users ... \n')
         for user in users:
@@ -48,9 +47,12 @@ class Server:
         test_loader = self.model.load_dataset()[1]
         test_count = len(iter(test_loader))*self.model.batch_size
         #print(test_count)
+        self.model.model.to(self.device)
         self.model.model.eval()
         test_accuracy = 0.0
         for images,labels in test_loader:
+            images = images.to(self.device)
+            labels = labels.to(self.device)
             outputs = self.model.model(images)
             _,predictions = torch.max(outputs.data,1)
             test_accuracy += int(torch.sum(predictions==labels.data))
@@ -82,6 +84,7 @@ class Server:
 
         aggregated_weights = self.aggregator(parameter_list)
         self.model.initialise_parameters(aggregated_weights)
+        print('Bias weights at Server : ',self.model.model.conv1.bias)
         return avg_best_acc
 
 

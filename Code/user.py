@@ -15,9 +15,9 @@ class User:
         print(f'Bias weights at User {self.user_id}',self.model.model.conv1.bias)
 
 
-    def predict(self, item_id, embedding_user, embedding_item):
-        #Yet to complete
-        return None
+    def predict(self):
+        pass
+
 
     def train(self):
         #train function utilizes all other functions and returns best acuracy having saved best checkpoint model

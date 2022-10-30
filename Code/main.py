@@ -6,57 +6,56 @@ from sklearn import metrics
 import argparse
 import warnings
 import faulthandler
-import torch
 from random import randrange
 faulthandler.enable()
 warnings.filterwarnings('ignore')
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
-parser = argparse.ArgumentParser(description="args for FedGNN")
-parser.add_argument('--lr', type=float, default = 1)
-parser.add_argument('--data', default='filmtrust')
-parser.add_argument('--user_batch', type=int, default=5)
-parser.add_argument('--num_users',type=int,default=2)
-parser.add_argument('--clip', type=float, default = 0.1)
-parser.add_argument('--laplace_lambda', type=float, default = 0.1)
-parser.add_argument('--negative_sample', type = int, default = 1000)
-parser.add_argument('--valid_step', type = int, default = 5)
+parser = argparse.ArgumentParser(description="Arguments for federated learning")
+parser.add_argument('--lr', type=float, default = 0.001)
+parser.add_argument('--data_path', default='/Users/tarunvisvar/Downloads/Dataset/Handwriting/Handwriting-subset')
+parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--num_iters', type = int, default = 5)
+parser.add_argument('--num_users',type = int,default = 3)
 args = parser.parse_args()
 
-user_batch = args.user_batch
 lr = args.lr
 num_users = args.num_users
+batch_size = args.batch_size
+data_path = args.data_path
+num_iters = args.num_iters
 
-# build user_list
+# Build user_list
 user_list = []
 user_id_list = [i+1 for i in range(num_users)]
 for u in user_id_list:
-    user_list.append(User(u,user_batch,randrange(40,60)))
+    user_list.append(User(u,batch_size,randrange(40,60)))
 
 print(f'User list = {[u.user_id for u in user_list]}')
 
-# build server
-server = Server(user_list,user_batch,0.001)
+# Build server
+server = Server(user_list,lr,data_path)
+
+
+accuracies = []
 count = 0
+for i in range(num_iters):
+    server_train_acc = server.train()
+    print(f"\nServer train accuracy at iteration {i+1} = {server_train_acc}")
+    server_test_acc = server.validate()
+    print(f"Server test accuarcy at iteration {i+1}= {server_test_acc}")
+    if i>0:
+        if server_test_acc > accuracies[-1]:
+            print(f"Accuracy improved from {accuracies[-1]} to {server_test_acc}")
+            count = 0
+        else:
+            count += 1
+    
+    if count>5:
+        print("No improvement for 5 iterations, stopping training ... ")
+    accuracies.append(server_test_acc)
 
-# train and evaluate
-acc_best = float('-inf')
-#print(torch.has_mps)
+print(f"List of server accuracies during federated learning : {accuracies}")
 
-while True:
-    acc = 0.0
-    for i in range(args.valid_step):
-        print(i)
-        acc = server.train()
-        print(f"\nAccuracy at iteration {i} = {acc}")
-        server.validate()
-    if acc > acc_best:
-        acc_best = acc
-        count = 0
-    else:
-        count += 1
-    if count > 5:
-        print('Not improved for 5 epochs, stop training')
-        break
 
 

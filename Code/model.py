@@ -69,7 +69,7 @@ class ConvNet(nn.Module):
 
 class HWRModel:
     
-    def __init__(self,data_path = '/Users/tarunvisvar/Downloads/Dataset/handwriting-2'):
+    def __init__(self,data_path):
         self.train_path = data_path+'/Train'
         self.test_path = data_path +'/Test'
         self.model = ConvNet(num_classes = 3)
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     local_data_percentage = 40
     parameter_list = [] # For testing aggregator function developed by Shasaank
     for i in range(5):
-        mymodel = HWRModel()
+        mymodel = HWRModel(data_path)
         #mymodel.user_instance(i,batch_size,local_data_percentage)
         mymodel.train(num_epochs = 2)
         parameters = mymodel.get_parameters()

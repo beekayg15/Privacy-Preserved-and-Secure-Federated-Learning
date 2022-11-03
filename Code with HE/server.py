@@ -5,6 +5,7 @@ import torch.nn as nn
 from multiprocessing import Pool, Manager
 # from torch.multiprocessing import Pool, Manager
 from model import HWRModel
+import tenseal as ts
 import pdb
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -18,7 +19,7 @@ class Server:
     def aggregator(self, parameter_list):
 
         #print("Expected added result : ",parameter_list[0]['conv1.bias'].decrypt().tolist()," + ",parameter_list[1]['conv1.bias'].decrypt().tolist()," = ",(parameter_list[0]['conv1.bias']+parameter_list[1]['conv1.bias']).decrypt().tolist())
-        
+        print("\nAggregating gradients ...")
         lou = parameter_list.copy()  # los -List of users
         result = None
         if len(lou) > 0:
@@ -28,23 +29,25 @@ class Server:
             return result
 
         layer_names = lou[0].keys()  # collecting the of each layer in the model
-        n = torch.tensor(len(parameter_list))
+        n = len(parameter_list)
         # calculating the average of parameters all the users
         for layer in layer_names:
             for user in lou:
                 result[layer] = result[layer] + user[layer]
-            #if layer=='conv1.bias':
+
                 #print("Encrypted added result after decryption : ",torch.FloatTensor(result[layer].decrypt().tolist()))
-            
-            result[layer] = result[layer] / n
         #For testing
         print("Aggregated gradients : ",result['conv1.bias'])
 
         #Differential privacy
         result = self.decrypt(result)
-
+        for layer in result:
+            result[layer] = result[layer]/n
+  
+        print("Aggregated gradients after decryption : ",result['conv1.bias'])
 
         return result
+
 
     def decrypt(self,params):
         decrypted_result = dict()
@@ -65,7 +68,7 @@ class Server:
         pass
     
     def validate(self):
-        test_loader = self.model.load_dataset()[1]
+        test_loader = self.model.load_test_dataset()
         test_count = len(iter(test_loader))*self.model.batch_size
         #print(test_count)
         self.model.model.to(self.device)
@@ -85,7 +88,7 @@ class Server:
         print(user)
         self.parameter_list.append(user.train())
 
-    def train(self):
+    def run(self):
 
         parameter_list = []
 
@@ -105,12 +108,8 @@ class Server:
 
         aggregated_weights = self.aggregator(parameter_list)
 
-        print("Aggregated weight at server : ",aggregated_weights['conv1.bias'])
+        #print("Aggregated weights at server : ",aggregated_weights['conv1.bias'])
         self.model.initialise_parameters(aggregated_weights)
-
-        #Include server training
-
-        print('Bias weights at Server : ',self.model.model.conv1.bias)
 
         return avg_best_acc
 

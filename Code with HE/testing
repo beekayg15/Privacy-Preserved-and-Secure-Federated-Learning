@@ -1,0 +1,9 @@
+from phe import paillier
+import torch
+
+public_key,private_key = paillier.generate_paillier_keypair()
+
+t1 = torch.FloatTensor([1.2,2.3,3.4])
+t2 = torch.FloatTensor([5.6,8.76,9.8])
+
+print(t1,t2)

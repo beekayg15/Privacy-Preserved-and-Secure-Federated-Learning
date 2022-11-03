@@ -10,7 +10,7 @@ import platform
 #glob module can be used for file name matching
 
 class ConvNet(nn.Module):
-    def __init__(self,num_classes=3):
+    def __init__(self,num_classes=2):
         super(ConvNet,self).__init__()
 
         
@@ -115,28 +115,31 @@ class HWRModel:
         return local_dataset
 
 
-    def load_dataset(self):
+    def load_train_dataset(self):
         #Creates train_loader and test_loader from the extracted dataset
-        train_loader = DataLoader(
-    self.get_dataset(self.train_path),
+        train_loader = DataLoader(self.get_dataset(self.train_path),
     batch_size=self.batch_size, shuffle=True)
 
-        test_loader = DataLoader(
-    self.get_dataset(self.test_path),
-    batch_size=self.batch_size, shuffle=True) 
+        return train_loader
 
-        return(train_loader,test_loader)
+    def load_test_dataset(self):
+
+        test_loader = DataLoader(self.get_dataset(self.test_path),
+    batch_size=self.batch_size, shuffle=True)
+
+        return test_loader
+
+
         
     def train(self,num_epochs=10):
         self.model.to(self.device)
         best_accuracy = 0.0
-        train_loader,test_loader = self.load_dataset()
+        train_loader = self.load_train_dataset()
         train_count=len(glob(self.train_path+'/**/*.png'))
-        test_count=len(glob(self.test_path+'/**/*.png'))
-
         
+
+        self.model.train()
         for epoch in range(num_epochs):
-            self.model.train()
             #Model will be in training mode and takes place on training dataset
             train_loss = 0.0
             train_accuracy = 0.0
@@ -157,23 +160,27 @@ class HWRModel:
             train_loss /= train_count
             print('Epoch: '+str(epoch)+' Train Loss: '+str(train_loss)+' Train Accuracy: '+str(train_accuracy))
 
-            self.model.eval()
-            test_accuracy = 0.0
-            for images,labels in test_loader:
-                images = images.to(self.device)
-                labels = labels.to(self.device)
-                outputs = self.model(images)
-                _,predictions = torch.max(outputs.data,1)
-                test_accuracy += int(torch.sum(predictions==labels.data))
-            test_accuracy /= test_count
-            print("Test accuracy =  ",str(test_accuracy))
 
-            if test_accuracy>best_accuracy:
+            if train_accuracy>best_accuracy:
                 
                 torch.save(self.model,self.dest_file)
-                best_accuracy=test_accuracy
-
+                best_accuracy=train_accuracy
+        self.model = torch.load(self.dest_file)
         return best_accuracy
+
+    def test(self):
+        test_loader = self.load_test_dataset()
+        test_count=len(glob(self.test_path+'/**/*.png'))
+        self.model.eval()
+        test_accuracy = 0.0
+        for images,labels in test_loader:
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+            outputs = self.model(images)
+            _,predictions = torch.max(outputs.data,1)
+            test_accuracy += int(torch.sum(predictions==labels.data))
+        test_accuracy /= test_count
+        print("Test accuracy =  ",str(test_accuracy))
 
     def get_best_parameters(self):
         loaded_model = torch.load(self.dest_file)
@@ -202,6 +209,7 @@ if __name__ == '__main__':
         mymodel = HWRModel(data_path)
         #mymodel.user_instance(i,batch_size,local_data_percentage)
         mymodel.train(num_epochs = 2)
+        mymodel.test()
         parameters = mymodel.get_best_parameters()
         for name,params in mymodel.model.named_parameters():
             print(name,params.shape)

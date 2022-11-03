@@ -51,31 +51,32 @@ class ConvNet(nn.Module):
 
     def initialise_parameters(self,result_parameters):
 
-        print('Initialize parameters called ...')
+        #print('Initialize parameters called ...')
         for params in self.parameters():
             params.data = params.to(torch.device('mps'))
         with torch.no_grad():
-            self.conv1.weight += torch.nn.Parameter(result_parameters['conv1.weight']-self.conv1.weight)
-            self.conv1.bias += torch.nn.Parameter(result_parameters["conv1.bias"]-self.conv1.bias)
-            self.bn1.weight += torch.nn.Parameter(result_parameters["bn1.weight"]-self.bn1.weight)
-            self.bn1.bias += torch.nn.Parameter(result_parameters["bn1.bias"]-self.bn1.bias)
-            self.conv2.weight += torch.nn.Parameter(result_parameters["conv2.weight"]-self.conv2.weight)
-            self.conv2.bias += torch.nn.Parameter(result_parameters["conv2.bias"]-self.conv2.bias)
-            self.conv3.weight += torch.nn.Parameter(result_parameters["conv3.weight"]-self.conv3.weight)
-            self.conv3.bias += torch.nn.Parameter(result_parameters["conv3.bias"]-self.conv3.bias)
-            self.bn3.weight += torch.nn.Parameter(result_parameters["bn3.weight"]-self.bn3.weight)
-            self.bn3.bias += torch.nn.Parameter(result_parameters["bn3.bias"]-self.bn3.bias)
-            self.fc.weight += torch.nn.Parameter(result_parameters["fc.weight"]-self.fc.weight)
-            self.fc.bias += torch.nn.Parameter(result_parameters["fc.bias"]-self.fc.bias)
+            #Adding the obtained gradients to the model
+            self.conv1.weight += torch.nn.Parameter(result_parameters['conv1.weight'].to(torch.device('mps')))
+            self.conv1.bias += torch.nn.Parameter(result_parameters["conv1.bias"].to(torch.device('mps')))
+            self.bn1.weight += torch.nn.Parameter(result_parameters["bn1.weight"].to(torch.device('mps')))
+            self.bn1.bias += torch.nn.Parameter(result_parameters["bn1.bias"].to(torch.device('mps')))
+            self.conv2.weight += torch.nn.Parameter(result_parameters["conv2.weight"].to(torch.device('mps')))
+            self.conv2.bias += torch.nn.Parameter(result_parameters["conv2.bias"].to(torch.device('mps')))
+            self.conv3.weight += torch.nn.Parameter(result_parameters["conv3.weight"].to(torch.device('mps')))
+            self.conv3.bias += torch.nn.Parameter(result_parameters["conv3.bias"].to(torch.device('mps')))
+            self.bn3.weight += torch.nn.Parameter(result_parameters["bn3.weight"].to(torch.device('mps')))
+            self.bn3.bias += torch.nn.Parameter(result_parameters["bn3.bias"].to(torch.device('mps')))
+            self.fc.weight += torch.nn.Parameter(result_parameters["fc.weight"].to(torch.device('mps')))
+            self.fc.bias += torch.nn.Parameter(result_parameters["fc.bias"].to(torch.device('mps')))
 
 
 class HWRModel:
     
-    def __init__(self,data_path,lr):
+    def __init__(self,data_path):
         self.train_path = data_path+'/Train'
         self.test_path = data_path +'/Test'
-        self.model = ConvNet(num_classes = 3)
-        self.optimizer = Adam(self.model.parameters(), lr=lr)
+        self.model = ConvNet(num_classes = 2)
+        self.optimizer = Adam(self.model.parameters(), lr=0.001)
         self.loss_func = nn.CrossEntropyLoss()
         self.dest_file = 'best_checkpoint_server.model'
         self.batch_size = 20
@@ -174,29 +175,39 @@ class HWRModel:
 
         return best_accuracy
 
-    def get_parameters(self):
+    def get_best_parameters(self):
         loaded_model = torch.load(self.dest_file)
         params = dict()
         for name,parameters in loaded_model.named_parameters():
             params[name] = parameters
             
         return params
+    
+    def get_model_parameters(self):
+        #Returns model parameters asa dictionary 
+        result = dict()
+        for name,params in self.model.named_parameters():
+            result[name] = params
+        return result
+
 
 
 if __name__ == '__main__':
 
-    data_path = '/Users/tarunvisvar/Downloads/Dataset/Handwriting//Handwriting-subset'
+    data_path = '/Users/tarunvisvar/Downloads/Dataset/Handwriting/Handwriting-subset'
     batch_size = 64
     local_data_percentage = 40
     parameter_list = [] # For testing aggregator function developed by Shasaank
     for i in range(5):
-        mymodel = HWRModel(data_path,0.01)
+        mymodel = HWRModel(data_path)
         #mymodel.user_instance(i,batch_size,local_data_percentage)
-        mymodel.train(num_epochs = 5)
-        parameters = mymodel.get_parameters()
+        mymodel.train(num_epochs = 2)
+        parameters = mymodel.get_best_parameters()
+        for name,params in mymodel.model.named_parameters():
+            print(name,params.shape)
         parameter_list.append(parameters)
         break
-    with open('parameter_list.txt','w') as f:
+    with open('parameter_list.bin','wb') as f:
         pickle.dump(parameter_list,f)
 
 

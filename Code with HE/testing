@@ -1,9 +1,14 @@
-from phe import paillier
+import tenseal as ts
 import torch
+def context():
+    context = ts.context(ts.SCHEME_TYPE.CKKS,poly_modulus_degree=8192,coeff_mod_bit_sizes=[60,40,40,60])
+    context.global_scale = pow(2, 40)
+    context.generate_galois_keys()
+    return context
 
-public_key,private_key = paillier.generate_paillier_keypair()
+public_key = context()
 
-t1 = torch.FloatTensor([1.2,2.3,3.4])
-t2 = torch.FloatTensor([5.6,8.76,9.8])
 
-print(t1,t2)
+a = ts.ckks_tensor(public_key, ts.PlainTensor([2,4,6]))
+a = a*torch.tensor(1/4)
+print(a.decrypt().tolist())

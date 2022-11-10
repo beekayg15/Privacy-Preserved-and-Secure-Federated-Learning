@@ -16,8 +16,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--lr', type=float, default = 0.01)
 parser.add_argument('--data_path', default='/Users/tarunvisvar/Downloads/Dataset/Handwriting//Handwriting-subset')
 parser.add_argument('--batch_size', type=int, default=64)
-parser.add_argument('--num_iters', type = int, default = 5)
-parser.add_argument('--num_users',type = int,default = 3)
+parser.add_argument('--num_iters', type = int, default = 2)
+parser.add_argument('--num_users',type = int,default = 2)
 args = parser.parse_args()
 
 lr = args.lr
@@ -28,8 +28,7 @@ num_iters = args.num_iters
 
 def context():
 
-    bits_scale = 26
-    context = ts.context(ts.SCHEME_TYPE.CKKS,poly_modulus_degree=8192,coeff_mod_bit_sizes=[31, bits_scale, bits_scale, 31])
+    context = ts.context(ts.SCHEME_TYPE.CKKS,poly_modulus_degree=8192,coeff_mod_bit_sizes=[60,40,40,60])
     context.global_scale = pow(2, 40)
     context.generate_galois_keys()
     return context
@@ -40,7 +39,7 @@ public_key = context()
 user_list = []
 user_id_list = [i+1 for i in range(num_users)]
 for u in user_id_list:
-    user_list.append(User(u,batch_size,randrange(40,60),public_key))
+    user_list.append(User(u,batch_size,100,public_key))
 
 print(f'User list = {[u.user_id for u in user_list]}')
 
@@ -51,11 +50,13 @@ server = Server(user_list,lr,data_path)
 accuracies = []
 count = 0
 
+server.distribute_model(user_list)
+
 for i in range(num_iters):
     server_acc = server.run()
-    print(f"\nServer train accuracy at iteration {i+1} = {server_train_acc}")
-    server_test_acc = server.validate()
-    print(f"Server test accuarcy at iteration {i+1}= {server_test_acc}")
+    print(f"\nBest average accuracy at  iteration {i+1} = {server_acc}")
+    server_test_acc = server_acc
+    #print(f"Server test accuarcy at iteration {i+1}= {server_test_acc}")
     if i>0:
         if server_test_acc > accuracies[-1]:
             print(f"Accuracy improved from {accuracies[-1]} to {server_test_acc}")

@@ -9,17 +9,27 @@ class User:
         self.batch_size = batch_size
         self.best_accuracy = None
         self.public_key = public_key
-
-    def update_local_model(self, global_model):
+    
+    def get_initial_model(self,global_model):
         self.model = copy.deepcopy(global_model)
-
-        #Just add ceratin attributes to the model(user_id, batch size, local data percentage)
         self.model.user_instance(self.user_id,self.batch_size,self.local_data_percentage)
+        self.initial_weights = self.model.get_model_parameters()
+
+
+    def update_local_model(self, aggregated_gradients):
+                #Just add ceratin attributes to the model(user_id, batch size, local data percentage)
+        self.model.user_instance(self.user_id,self.batch_size,self.local_data_percentage)
+        
+        decrypted_grads = self.decrypt(aggregated_gradients)
+        print(f"User {self.user_id} received updated gradients from server")
+        print("Decrypted aggregated gradients at user : ", decrypted_grads['conv1.bias'])
+
+        self.model.initialise_parameters(decrypted_grads)
+        print(f'Bias weights at User {self.user_id} after adding gradients',self.model.model.conv1.bias)
 
         self.initial_weights = self.model.get_model_parameters()
 
-        print(f'\nUser {self.user_id} received model from server .. ')
-        print(f'Bias weights at User {self.user_id}',self.model.model.conv1.bias)
+       
 
 
     def predict(self):
@@ -30,6 +40,15 @@ class User:
             gradient = ts.PlainTensor(gradient.tolist())
             encrypted_gradient = ts.ckks_tensor(self.public_key,gradient)
             return encrypted_gradient
+
+    def decrypt(self,params):
+        decrypted_result = dict()
+        for layer in params:
+            if not layer.startswith('fc'):
+                decrypted_result[layer] = torch.FloatTensor(params[layer].decrypt().tolist())
+            else:
+                decrypted_result[layer] = params[layer]
+        return decrypted_result
 
     def train(self):
         #train function utilizes all other functions and returns best acuracy having saved best checkpoint model

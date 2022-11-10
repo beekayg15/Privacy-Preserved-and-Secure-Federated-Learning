@@ -6,7 +6,7 @@ from multiprocessing import Pool, Manager
 # from torch.multiprocessing import Pool, Manager
 from model import HWRModel
 import tenseal as ts
-import pdb
+from time import time
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 class Server:
@@ -29,40 +29,46 @@ class Server:
             return result
 
         layer_names = lou[0].keys()  # collecting the of each layer in the model
-        n = len(parameter_list)
+        n = torch.tensor(1/len(parameter_list))
         # calculating the average of parameters all the users
+        
+        start = time()
         for layer in layer_names:
             for user in lou:
                 result[layer] = result[layer] + user[layer]
 
                 #print("Encrypted added result after decryption : ",torch.FloatTensor(result[layer].decrypt().tolist()))
         #For testing
-        print("Aggregated gradients : ",result['conv1.bias'])
+        end = time()
+        print(f"Completed addition in {end-start} seconds ... ")
+        print(f"Debug : Added result = {result['conv1.bias'].decrypt().tolist()}")
+        
 
         #Differential privacy
-        result = self.decrypt(result)
+        start = time()
         for layer in result:
-            result[layer] = result[layer]/n
+            result[layer] = result[layer]*n
+
+        end = time()
+
+        print(f'Completed division in {end - start} seconds')
+        print(f"Debug : Divided result = {result['conv1.bias'].decrypt().tolist()}")
   
-        print("Aggregated gradients after decryption : ",result['conv1.bias'])
+        print("Aggregated gradients at server: ",result['conv1.bias'])
 
         return result
 
 
-    def decrypt(self,params):
-        decrypted_result = dict()
-        for layer in params:
-            if not layer.startswith('fc'):
-                decrypted_result[layer] = torch.FloatTensor(params[layer].decrypt().tolist())
-            else:
-                decrypted_result[layer] = params[layer]
-        return decrypted_result
-
      
-    def distribute(self,users):
-        print('Distributing model to users ... \n')
+    def distribute(self,aggregated_gradients):
+        print('Distributing aggregated gradients to users ... \n')
+        for user in self.user_list:
+            user.update_local_model(aggregated_gradients)
+
+    def distribute_model(self,users):
+        print('Distributing model to users ...')
         for user in users:
-            user.update_local_model(self.model)
+            user.get_initial_model(self.model)
 
     def predict(self):
         pass
@@ -95,7 +101,6 @@ class Server:
         users = self.user_list
 
         #distributes the global model to all the users
-        self.distribute(users)
 
         #Runs train for all the users(basically trains all the users)
         #After training each user, adds the resultant parameters to the parameter list
@@ -106,10 +111,12 @@ class Server:
             avg_best_acc += user.best_accuracy
         avg_best_acc /= len(users)
 
-        aggregated_weights = self.aggregator(parameter_list)
+        aggregated_gradients = self.aggregator(parameter_list)
+
+        self.distribute(aggregated_gradients)
 
         #print("Aggregated weights at server : ",aggregated_weights['conv1.bias'])
-        self.model.initialise_parameters(aggregated_weights)
+        #self.model.initialise_parameters(aggregated_weights)
 
         return avg_best_acc
 

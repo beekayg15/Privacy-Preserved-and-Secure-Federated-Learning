@@ -2,7 +2,6 @@
 import numpy as np
 from user import User
 from server import Server
-from sklearn import metrics
 import argparse
 import warnings
 import faulthandler
@@ -14,7 +13,7 @@ warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser(description="Arguments for federated learning")
 parser.add_argument('--lr', type=float, default = 0.001)
-parser.add_argument('--data_path', default='/Users/tarunvisvar/Downloads/Dataset/Handwriting//Handwriting-subset')
+parser.add_argument('--data_path', default='/Users/barathkumar/Documents/Research/DP & FL/Dataset/Handwriting/Handwriting-subset')
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--num_iters', type = int, default = 5)
 parser.add_argument('--num_users',type = int,default = 3)

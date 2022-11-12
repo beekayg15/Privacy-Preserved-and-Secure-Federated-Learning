@@ -12,6 +12,7 @@ class User:
     
     def get_initial_model(self,global_model):
         self.model = copy.deepcopy(global_model)
+        self.model.model.to(torch.device('mps'))
         self.model.user_instance(self.user_id,self.batch_size,self.local_data_percentage)
         self.initial_weights = self.model.get_model_parameters()
 
@@ -19,11 +20,11 @@ class User:
     def update_local_model(self, aggregated_gradients):
                 #Just add ceratin attributes to the model(user_id, batch size, local data percentage)
         self.model.user_instance(self.user_id,self.batch_size,self.local_data_percentage)
-        
         decrypted_grads = self.decrypt(aggregated_gradients)
         print(f"User {self.user_id} received updated gradients from server")
         print("Decrypted aggregated gradients at user : ", decrypted_grads['conv1.bias'])
 
+        #Initialsing user's consistent model 
         self.model.initialise_parameters(decrypted_grads)
         print(f'Bias weights at User {self.user_id} after adding gradients',self.model.model.conv1.bias)
 
@@ -51,13 +52,32 @@ class User:
         return decrypted_result
 
     def train(self):
+
+        #Every time train is called, it copies the existing model to train_model and trains it
+        #Then it takes gradients and sends to server for aggregation and receives aggregated gradients
+        #It adds the aggregated gradients to the self.model 
+        #In next train call, this updated model will be copied to train_model.
+
+        #There fore, in user training, step one is copy and step two is train in copied model
+        
+        train_model = copy.deepcopy(self.model)
+        #(Copying consistent model to train_model and then training it)
+        
         #train function utilizes all other functions and returns best acuracy having saved best checkpoint model
         print(f"\nUser {self.user_id} starting training ... \n")
-        self.best_accuracy = self.model.train(num_epochs = 5)
+        self.best_accuracy = train_model.train(num_epochs = 5)
         print(f"\nUser {self.user_id} Best accuracy = ",self.best_accuracy)
-        self.model.test()
-        parameters = self.model.get_best_parameters()
+        train_model.test()
+        parameters = train_model.get_best_parameters()
 
+        #Debug
+        params1 = self.model.get_model_parameters()
+        params2 = train_model.get_model_parameters()
+
+        print("Normal model = ",params1['conv1.bias'])
+        print("Train model = ",params2['conv1.bias'])
+
+        #print("Checking copy : ",params1==params2)
         
         for layer in parameters:
             if not layer.startswith('fc'):

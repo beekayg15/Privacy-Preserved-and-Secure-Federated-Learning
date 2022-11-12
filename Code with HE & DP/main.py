@@ -13,7 +13,7 @@ import tenseal as ts
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--lr', type=float, default = 0.01)
-parser.add_argument('--data_path', default='/Users/barathkumar/Documents/Research/DP & FL/Dataset/Handwriting/Handwriting-subset')
+parser.add_argument('--data_path', default='/Users/tarunvisvar/Downloads/Dataset/Handwriting//Handwriting-subset')
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--num_iters', type = int, default = 2)
 parser.add_argument('--num_users',type = int,default = 2)

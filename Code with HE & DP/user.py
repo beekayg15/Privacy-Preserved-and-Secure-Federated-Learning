@@ -12,6 +12,7 @@ class User:
     
     def get_initial_model(self,global_model):
         self.model = copy.deepcopy(global_model)
+        self.model.model.to(torch.device('mps'))
         self.model.user_instance(self.user_id,self.batch_size,self.local_data_percentage)
         self.initial_weights = self.model.get_model_parameters()
 
@@ -51,12 +52,22 @@ class User:
         return decrypted_result
 
     def train(self):
+        # Every time train is called, it copies the existing model to train_model and trains it
+        # Then it takes gradients and sends to server for aggregation and receives aggregated gradients
+        # It adds the aggregated gradients to the self.model
+        # In next train call, this updated model will be copied to train_model.
+
+        # There fore, in user training, step one is copy and step two is train in copied model
+
+        train_model = copy.deepcopy(self.model)
+        # (Copying consistent model to train_model and then training it)
+
         #train function utilizes all other functions and returns best acuracy having saved best checkpoint model
         print(f"\nUser {self.user_id} starting training ... \n")
-        self.best_accuracy = self.model.train(num_epochs = 3)
+        self.best_accuracy = train_model.train(num_epochs = 3)
         print(f"\nUser {self.user_id} Best accuracy = ",self.best_accuracy)
-        self.model.test()
-        parameters = self.model.get_best_parameters()
+        train_model.test()
+        parameters = train_model.get_best_parameters()
 
         
         for layer in parameters:
